@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRD - Thavon AI Voice Receptionist</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: #f9fafb;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #e1e4e8;
+            padding-bottom: 30px;
+            margin-bottom: 40px;
+        }
+        h1 { font-size: 32px; color: #111827; margin-bottom: 8px; }
+        h2 { font-size: 24px; color: #1f2937; margin-top: 40px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+        h3 { font-size: 20px; color: #374151; margin-top: 30px; }
+        h4 { font-size: 16px; color: #4b5563; margin-top: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+        p, li { font-size: 16px; color: #4b5563; }
+        ul, ol { padding-left: 20px; }
+        code { background-color: #f3f4f6; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 14px; }
+        pre { background-color: #111827; color: #e5e7eb; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 14px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 20px; }
+        .badge-primary { background-color: #dbeafe; color: #1e40af; }
+        .section-box { background: white; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        th { background-color: #f9fafb; font-weight: 600; color: #374151; }
+        .latency-metric { color: #059669; font-weight: 700; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="badge badge-primary">Internal Strategic Document</div>
+        <h1>Thavon AI: Product Requirements Document</h1>
+        <p>Real Estate AI Voice Receptionist & Lead Management Platform</p>
+        <p><strong>Version:</strong> 1.1 | <strong>Last Updated:</strong> February 2026</p>
+    </div>
+
+    <div class="section-box">
+        <h2>1. Executive Summary</h2>
+        <p>Thavon is a high-performance SaaS platform purpose-built for real estate professionals. It solves the industry-wide problem of "lead leakage" by providing an AI-driven voice agent that answers inbound calls 24/7 with human-like responsiveness. Beyond inbound reception, Thavon automates outbound FSBO (For Sale By Owner) prospecting, significantly increasing appointment setting efficiency.</p>
+    </div>
+
+    <div class="section-box">
+        <h2>2. Product Vision & Value Proposition</h2>
+        <p>To be the operating system for real estate voice communication. Thavon doesn't just "talk"; it qualifies, schedules, and informs agents in real-time, allowing them to focus on closing deals rather than answering phones.</p>
+        <ul>
+            <li><strong>Responsiveness:</strong> Instant answers, zero missed calls.</li>
+            <li><strong>Efficiency:</strong> Automatic qualification filtering junk from gold.</li>
+            <li><strong>Simplicity:</strong> No coding required for agents; simple script-based configuration.</li>
+        </ul>
+    </div>
+
+    <div class="section-box">
+        <h2>3. Functional Requirements</h2>
+
+        <h3>3.1 Server-First Transient AI Voice Stack</h3>
+        <p>Unlike traditional AI voice bots that store state on third-party platforms, Thavon uses a <strong>Transient Assistant</strong> architecture. Every incoming call triggers a request to Thavon's servers, which dynamically generate a configuration.</p>
+        <ul>
+            <li><strong>Dynamic Personas:</strong> Assistants are configured on-the-fly based on the agency's current profile.</li>
+            <li><strong>Ultra-Low Latency:</strong> Optimized pipeline achieving <span class="latency-metric">&lt; 300ms</span> total turnaround time.</li>
+            <li><strong>Smart Interruptions:</strong> Advanced Voice Activity Detection (VAD) allows callers to interrupt naturally.</li>
+        </ul>
+
+        <h3>3.2 Conversational Priority System (CPS)</h3>
+        <p>The AI follows a strict priority lattice to ensure professional yet casual interactions:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Priority</th>
+                    <th>Type</th>
+                    <th>Logic / Trigger</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>P0</td>
+                    <td>Stop Signals</td>
+                    <td>Immediate "Do not call" handling and automated removal.</td>
+                </tr>
+                <tr>
+                    <td>P1</td>
+                    <td>Objections</td>
+                    <td>Contextual handling for "I have an agent" or "Not interested."</td>
+                </tr>
+                <tr>
+                    <td>P2</td>
+                    <td>Qualification</td>
+                    <td>Iterative question-and-answer flow based on agency requirements.</td>
+                </tr>
+                <tr>
+                    <td>P3</td>
+                    <td>Conversion</td>
+                    <td>Triggering <code>check_availability</code> and <code>book_appointment</code>.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>3.3 Lead & FSBO Management</h3>
+        <ul>
+            <li><strong>Bulk CSV Import:</strong> Agents can upload thousands of leads (FSBO lists) via CSV.</li>
+            <li><strong>Automated Outbound:</strong> Integration with Vapi to launch outbound campaigns directly from the table.</li>
+            <li><strong>Real-time Status:</strong> Leads transition through statuses (<code>New</code>, <code>Calling</code>, <code>Qualified</code>, etc.).</li>
+        </ul>
+    </div>
+
+    <div class="section-box">
+        <h2>4. Technical Architecture</h2>
+
+        <h3>4.1 Modern SaaS Stack</h3>
+        <div class="grid">
+            <div>
+                <h4>Core Framework</h4>
+                <ul>
+                    <li><strong>Frontend:</strong> Next.js 16 (App Router)</li>
+                    <li><strong>Styling:</strong> Vanilla CSS / Tailwind (System)</li>
+                    <li><strong>Auth:</strong> Clerk (Keyless/JWT)</li>
+                </ul>
+            </div>
+            <div>
+                <h4>Data Layer</h4>
+                <ul>
+                    <li><strong>ORM:</strong> Prisma</li>
+                    <li><strong>DB:</strong> PostgreSQL</li>
+                    <li><strong>Mail:</strong> Resend (Transactional)</li>
+                </ul>
+            </div>
+        </div>
+
+        <h3>4.2 Voice Engineering</h3>
+        <p>The "Invisible Receptionist" is powered by a high-speed inference pipeline:</p>
+        <pre>
+Pipeline Configuration:
+- STT Provider: Deepgram (Nova-3)
+- LLM Provider: OpenAI (GPT-4o-mini)
+- TTS Provider: ElevenLabs (Turbo v2.5)
+- Orchestration: Vapi Transient Server URL
+        </pre>
+    </div>
+
+    <div class="section-box">
+        <h2>5. Database Schema (Detail)</h2>
+        <p>The system relies on three core relational pillars:</p>
+        <ul>
+            <li><strong>Organization:</strong> The multi-tenant root. Stores <code>openingLine</code>, <code>qualificationQs</code>, and <code>voiceConfig</code> (JSON).</li>
+            <li><strong>Lead:</strong> Individual prospect records linked to an Organization. Includes <code>status</code> and <code>lastCall</code> tracking.</li>
+            <li><strong>CallLog:</strong> Immutable history of interactions. Stores <code>duration</code>, <code>transcript</code>, <code>summary</code>, and <code>recordingUrl</code>.</li>
+        </ul>
+    </div>
+
+    <div class="section-box">
+        <h2>6. Development Status & Roadmap</h2>
+        <p>Thavon is currently in <strong>Production Preview</strong> mode.</p>
+        
+        <h4>Phase 1: Foundation (Completed)</h4>
+        <ul>
+            <li>Core Dashboard UI & Authentication</li>
+            <li>Transient Inbound Webhook Support</li>
+            <li>Automated Post-Call Email Delivery</li>
+        </ul>
+
+        <h4>Phase 2: Lead Engine (Completed)</h4>
+        <ul>
+            <li>CSV Upload & Parsing (PapaParse)</li>
+            <li>Outbound Call Action Triggers</li>
+            <li>Dynamic Mock Data for Prototyping</li>
+        </ul>
+
+        <h4>Phase 3: Deep Integration (Next Up)</h4>
+        <ul>
+            <li>Calendar Sync (Outlook/Google)</li>
+            <li>Live Call Transfer to Human Agents</li>
+            <li>SMS Follow-ups for "Interested" leads</li>
+        </ul>
+    </div>
+
+    <div style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 40px;">
+        Proprietary & Confidential - Thavon AI - 2026
+    </div>
+</body>
+</html>

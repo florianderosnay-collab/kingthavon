@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum ConversationState {
+  NEW          // Lead imported, never contacted
+  ATTEMPTED    // Call placed, not answered / voicemail
+  CONTACTED    // Spoke with lead, not yet qualifying
+  QUALIFYING   // Actively going through qualification questions
+  QUALIFIED    // Valuation appointment booked
+  DISQUALIFIED // Has agent, DNC, bad number, or definitively not interested
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model Organization {
+  id                String   @id @default(uuid())
+  name              String
+  phoneNumber       String   @unique // The Vapi phone number
+  vapiPhoneNumberId String?           // The Vapi Phone Number ID
+  clerkUserId       String?  @unique
+  stripeCustomerId  String?
+  subscriptionId    String?
+  plan              String   @default("core") // core, growth, agency_os
+
+  // Script Config
+  openingLine       String
+  qualificationQs   String[]
+
+  // Voice Config
+  voiceConfig       Json?    // { model: 'gpt-4o' | 'gpt-4o-mini', useTools: boolean }
+
+  email             String   // For summaries
+
+  calls             CallLog[]
+  leads             Lead[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Lead {
+  id        String            @id @default(uuid())
+  orgId     String
+  org       Organization      @relation(fields: [orgId], references: [id])
+  name      String
+  phone     String
+  address   String?
+  status    ConversationState @default(NEW)
+  lastCall  DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  callLogs  CallLog[]
+
+  @@index([orgId])
+}
+
+model CallLog {
+  id           String  @id @default(uuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id])
+
+  // Optional link back to the specific lead (present for outbound calls)
+  leadId       String?
+  lead         Lead?   @relation(fields: [leadId], references: [id])
+
+  status       String
+  outcome      String? // e.g. qualified, not_qualified, booked, removed, callback
+  duration     Int?
+  summary      String?
+  transcript   String?
+  recordingUrl String?
+  createdAt    DateTime @default(now())
+}

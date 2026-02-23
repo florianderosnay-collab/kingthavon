@@ -2,11 +2,3 @@ name = "thavon"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
-
-# Force esbuild to resolve all @prisma/client imports to the edge build.
-# @prisma/adapter-neon transitively imports @prisma/client (main/Node build)
-# so without this alias the bundle graph reaches .prisma/client/default which
-# is Node-only and fails in Cloudflare Workers.
-[alias]
-"@prisma/client" = "@prisma/client/edge"
-".prisma/client/default" = ".prisma/client/edge"

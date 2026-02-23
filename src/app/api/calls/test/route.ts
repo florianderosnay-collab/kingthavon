@@ -1,5 +1,7 @@
+export const runtime = 'edge';
+
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prismaEdge } from '@/lib/prisma-edge';
 import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: Request) {
@@ -11,13 +13,11 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
     }
 
-    const org = await prisma.organization.findUnique({
+    const org = await prismaEdge.organization.findUnique({
         where: { clerkUserId: userId },
     });
 
-    if (!org) {
-        return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
-    }
+    if (!org) return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
 
     if (!process.env.VAPI_API_KEY) {
         return NextResponse.json({ error: 'VAPI_API_KEY is not configured' }, { status: 500 });
@@ -34,7 +34,7 @@ Qualification Questions (ask one at a time):
 ${org.qualificationQs.map((q: string) => `- ${q}`).join('\n')}
 
 If the user asks to speak to a human, say you will have someone call them back.
-    `.trim();
+        `.trim();
 
         const vapiRes = await fetch('https://api.vapi.ai/call', {
             method: 'POST',

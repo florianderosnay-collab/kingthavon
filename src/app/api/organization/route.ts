@@ -1,12 +1,14 @@
+export const runtime = 'edge';
+
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prismaEdge } from '@/lib/prisma-edge';
 import { auth } from '@clerk/nextjs/server';
 
 export async function GET() {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const org = await prisma.organization.findUnique({
+    const org = await prismaEdge.organization.findUnique({
         where: { clerkUserId: userId },
     });
 
@@ -21,7 +23,7 @@ export async function PUT(request: Request) {
         const body = await request.json();
         const { openingLine, qualificationQs, name, email, voiceConfig } = body;
 
-        const org = await prisma.organization.update({
+        const org = await prismaEdge.organization.update({
             where: { clerkUserId: userId },
             data: {
                 openingLine,

@@ -1,7 +1,9 @@
+export const runtime = 'edge';
+
 import { NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { stripe } from '@/lib/stripe';
-import { prisma } from '@/lib/prisma';
+import { prismaEdge } from '@/lib/prisma-edge';
 import { absoluteUrl } from '@/lib/utils';
 
 const settingsUrl = absoluteUrl('/dashboard/settings');
@@ -15,15 +17,12 @@ export async function POST(req: Request) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        const org = await prisma.organization.findFirst({
+        const org = await prismaEdge.organization.findFirst({
             where: { clerkUserId: userId },
         });
 
-        if (!org) {
-            return new NextResponse('Organization not found', { status: 404 });
-        }
+        if (!org) return new NextResponse('Organization not found', { status: 404 });
 
-        // Already on a paid plan — redirect to portal to manage
         if (org.stripeCustomerId && org.subscriptionId && org.plan !== 'core') {
             return new NextResponse('Already subscribed', { status: 400 });
         }
@@ -43,7 +42,7 @@ export async function POST(req: Request) {
                             name: 'Thavon Growth Plan',
                             description: '2000 minutes/month',
                         },
-                        unit_amount: 19900, // $199.00
+                        unit_amount: 19900,
                         recurring: { interval: 'month' },
                     },
                     quantity: 1,

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import { prisma } from '@/lib/prisma-edge'
 
 // Call Duration limits per plan (in seconds)
 export const PLAN_LIMITS = {

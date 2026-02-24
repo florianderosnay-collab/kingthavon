@@ -1,25 +1,49 @@
-// Edge-compatible Prisma client — safe for Cloudflare Workers / Next.js Edge Runtime.
-// Uses @prisma/client/edge (NOT @prisma/client which is the Node.js build).
-// All queries go over HTTPS fetch via PrismaNeonHttp — no TCP, no WebSocket, no Node.js.
+// Lazy Prisma Edge client — defers ALL initialization to request-time.
+//
+// IMPORTANT: Do NOT call new PrismaClient() at module scope.
+// Next.js executes modules during `next build` (page data collection),
+// so module-level Prisma init crashes if DATABASE_URL is absent at build time.
+//
+// The Proxy below intercepts every property access (prisma.lead, prisma.callLog …)
+// and creates the real PrismaClient on the FIRST access — which only happens
+// inside a request handler, never during the build phase.
 
 import { PrismaNeonHttp } from '@prisma/adapter-neon';
 import { PrismaClient } from '@prisma/client/edge';
 
-if (!process.env.DATABASE_URL) {
-    // Fail with a clear message rather than a cryptic crash deep in Prisma internals.
-    // This surfaces immediately in Cloudflare Pages logs.
-    throw new Error(
-        '[prisma-edge] DATABASE_URL is not set. ' +
-        'Add it to your Cloudflare Pages environment variables.'
-    );
+function makeLazyClient(): PrismaClient {
+    let client: PrismaClient | null = null;
+
+    const getClient = (): PrismaClient => {
+        if (client) return client;
+
+        const url = process.env.DATABASE_URL;
+        if (!url) {
+            throw new Error(
+                '[prisma-edge] DATABASE_URL is not set. ' +
+                'Add it to your Cloudflare Pages environment variables.'
+            );
+        }
+
+        const adapter = new PrismaNeonHttp(url, {
+            arrayMode: false,
+            fullResults: true,
+        });
+
+        client = new PrismaClient({ adapter });
+        return client;
+    };
+
+    // Proxy every property access through the lazy initializer.
+    // This is fully supported in V8 (Cloudflare Workers / Edge Runtime).
+    return new Proxy({} as PrismaClient, {
+        get(_target, prop: string | symbol) {
+            return (getClient() as unknown as Record<string | symbol, unknown>)[prop];
+        },
+    });
 }
 
-const adapter = new PrismaNeonHttp(process.env.DATABASE_URL, {
-    arrayMode: false,
-    fullResults: true,
-});
+const lazyClient = makeLazyClient();
 
-const client = new PrismaClient({ adapter });
-
-export const prisma = client;
-export const prismaEdge = client;
+export const prisma = lazyClient;
+export const prismaEdge = lazyClient;

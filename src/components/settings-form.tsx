@@ -12,7 +12,7 @@ interface OrgData {
     email: string
     openingLine: string
     qualificationQs: string[]
-    voiceConfig?: Record<string, string>
+    voiceConfig?: Record<string, string | boolean>
     phoneNumber?: string
     plan?: string
 }
@@ -38,6 +38,7 @@ export function SettingsForm() {
     }, [])
 
     const handleSave = async () => {
+        if (!org) return;
         setSaving(true)
         try {
             const res = await fetch('/api/organization', {

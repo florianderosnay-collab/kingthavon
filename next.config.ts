@@ -6,10 +6,11 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 const nextConfig: NextConfig = {
-  // Transpile radix-ui packages so webpack correctly handles their
-  // ESM exports in the Edge SSR bundle. Without this, React.createContext
-  // is not found when @radix-ui components are bundled for Edge.
   transpilePackages: ['radix-ui', '@radix-ui'],
+  eslint: {
+    // Linting runs separately in CI — do not block the build on lint errors.
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;

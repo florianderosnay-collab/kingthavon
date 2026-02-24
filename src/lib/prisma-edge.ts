@@ -5,13 +5,20 @@
 import { PrismaNeonHttp } from '@prisma/adapter-neon';
 import { PrismaClient } from '@prisma/client/edge';
 
-const adapter = new PrismaNeonHttp(process.env.DATABASE_URL!, {
+if (!process.env.DATABASE_URL) {
+    // Fail with a clear message rather than a cryptic crash deep in Prisma internals.
+    // This surfaces immediately in Cloudflare Pages logs.
+    throw new Error(
+        '[prisma-edge] DATABASE_URL is not set. ' +
+        'Add it to your Cloudflare Pages environment variables.'
+    );
+}
+
+const adapter = new PrismaNeonHttp(process.env.DATABASE_URL, {
     arrayMode: false,
     fullResults: true,
 });
 
-// Export as `prisma` so callers write: import { prisma } from '@/lib/prisma-edge'
-// `prismaEdge` is kept as an alias for backwards compatibility with existing imports.
 const client = new PrismaClient({ adapter });
 
 export const prisma = client;

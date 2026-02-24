@@ -1,48 +1,61 @@
-"use client"
+"use client";
 
 export const runtime = 'edge';
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Upload, Phone, FileSpreadsheet, Loader2 } from "lucide-react"
 import Papa from "papaparse"
 
+interface Lead {
+    id: string
+    name: string
+    phone: string
+    address: string | null
+    status: string
+    lastCall: string | null
+}
+
+interface CsvRow {
+    Name?: string
+    name?: string
+    Phone?: string
+    phone?: string
+    Address?: string
+    address?: string
+}
+
 export default function LeadsPage() {
-    // Mock Data for Visualization
-    const MOCK_LEADS = [
+    const MOCK_LEADS: Lead[] = [
         { id: '1', name: 'John Doe', phone: '+15550101', address: '123 Maple St', status: 'new', lastCall: null },
         { id: '2', name: 'Jane Smith', phone: '+15550102', address: '456 Oak Ave', status: 'contacted', lastCall: '2023-10-25T14:30:00Z' },
         { id: '3', name: 'Robert Johnson', phone: '+15550103', address: '789 Pine Ln', status: 'calling', lastCall: '2023-10-26T09:15:00Z' },
     ]
 
-    const [leads, setLeads] = useState<any[]>(MOCK_LEADS)
-    const [isLoading, setIsLoading] = useState(false)
+    const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS)
     const [isUploading, setIsUploading] = useState(false)
     const [callingId, setCallingId] = useState<string | null>(null)
-    const [mounted, setMounted] = useState(false)
-
-    useEffect(() => {
-        setMounted(true)
-    }, [])
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
         if (!file) return
 
         setIsUploading(true)
-        Papa.parse(file, {
+        Papa.parse<CsvRow>(file, {
             header: true,
-            complete: async (results) => {
-                const parsedLeads = results.data.map((row: any, index: number) => ({
-                    id: `temp-${Date.now()}-${index}`, // Temp ID for visualization
-                    name: row.Name || row.name || 'Unknown',
-                    phone: row.Phone || row.phone,
-                    address: row.Address || row.address,
-                    status: 'new',
-                    lastCall: null
-                })).filter((l: any) => l.phone)
+            complete: (results) => {
+                const parsedLeads: Lead[] = results.data
+                    .map((row, index) => ({
+                        id: `temp-${Date.now()}-${index}`,
+                        name: row.Name || row.name || 'Unknown',
+                        phone: row.Phone || row.phone || '',
+                        address: row.Address || row.address || null,
+                        status: 'new',
+                        lastCall: null,
+                    }))
+                    .filter((l) => l.phone)
 
                 if (parsedLeads.length === 0) {
                     alert("No valid contacts found in CSV")
@@ -50,7 +63,6 @@ export default function LeadsPage() {
                     return
                 }
 
-                // Simulate processing/upload for visualization
                 setTimeout(() => {
                     setLeads(prev => [...parsedLeads, ...prev])
                     setIsUploading(false)
@@ -60,12 +72,9 @@ export default function LeadsPage() {
         })
     }
 
-    const initiateCall = async (leadId: string) => {
+    const initiateCall = (leadId: string) => {
         setCallingId(leadId)
-
-        // Simulating call initiation for visualization
         setTimeout(() => {
-            console.log("Calling lead:", leadId)
             setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: 'calling', lastCall: new Date().toISOString() } : l))
             setCallingId(null)
         }, 1500)
@@ -85,7 +94,7 @@ export default function LeadsPage() {
         <div className="space-y-8">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Leads & FSBO Output</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Leads &amp; FSBO Output</h2>
                     <p className="text-muted-foreground mt-1">
                         Upload leads and manage outbound calls (Preview Mode).
                     </p>
@@ -118,11 +127,7 @@ export default function LeadsPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {isLoading ? (
-                        <div className="flex justify-center py-8">
-                            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-                        </div>
-                    ) : leads.length === 0 ? (
+                    {leads.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
                             No leads found. Upload a CSV to get started.
                         </div>
@@ -146,7 +151,7 @@ export default function LeadsPage() {
                                         <TableCell className="text-zinc-300">{lead.address || '-'}</TableCell>
                                         <TableCell>{getStatusBadge(lead.status)}</TableCell>
                                         <TableCell className="text-sm text-zinc-500">
-                                            {mounted && lead.lastCall ? new Date(lead.lastCall).toLocaleString() : lead.lastCall ? 'Loading...' : 'Never'}
+                                            {lead.lastCall ? new Date(lead.lastCall).toLocaleString() : 'Never'}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button

@@ -9,6 +9,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate"
   },
+  "overrides": {},
+  "packageManager": "npm@10.9.2",
   "dependencies": {
     "@clerk/nextjs": "^6.37.4",
     "@neondatabase/serverless": "^1.0.2",

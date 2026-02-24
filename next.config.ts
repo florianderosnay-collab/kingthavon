@@ -6,8 +6,10 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 const nextConfig: NextConfig = {
-  // No turbopack:{} — Next.js 15 does not default to Turbopack.
-  // @cloudflare/next-on-pages@1.13.x only supports Next.js <=15.5.2.
+  // Transpile radix-ui packages so webpack correctly handles their
+  // ESM exports in the Edge SSR bundle. Without this, React.createContext
+  // is not found when @radix-ui components are bundled for Edge.
+  transpilePackages: ['radix-ui', '@radix-ui'],
 };
 
 export default nextConfig;

@@ -7,10 +7,20 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 
+interface OrgData {
+    name: string
+    email: string
+    openingLine: string
+    qualificationQs: string[]
+    voiceConfig?: Record<string, string>
+    phoneNumber?: string
+    plan?: string
+}
+
 export function SettingsForm() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const [org, setOrg] = useState<any>(null)
+    const [org, setOrg] = useState<OrgData | null>(null)
     const [error, setError] = useState("")
 
     useEffect(() => {
@@ -158,7 +168,7 @@ export function SettingsForm() {
                 <CardHeader>
                     <CardTitle>Voice Configuration</CardTitle>
                     <CardDescription>
-                        Your AI receptionist's active phone line.
+                        Your AI receptionist&apos;s active phone line.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

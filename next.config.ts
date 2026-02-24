@@ -2,23 +2,16 @@ import type { NextConfig } from 'next';
 import { setupDevPlatform } from '@cloudflare/next-on-pages/next-dev';
 
 if (process.env.NODE_ENV === 'development') {
-  // Makes Cloudflare bindings available in next dev
   await setupDevPlatform();
 }
 
 const nextConfig: NextConfig = {
-  webpack: (config) => {
-    // Redirect ALL @prisma/client imports to the Edge build.
-    // @prisma/adapter-neon transitively imports @prisma/client (Node build),
-    // so we alias it here at the webpack layer — before esbuild ever sees it.
-    // Without this, `next build` fails with:
-    //   Module not found: Can't resolve '.prisma/client/default'
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@prisma/client': '@prisma/client/edge',
-    };
-    return config;
-  },
+  // Empty turbopack config required for Next.js 16 + Cloudflare Pages.
+  // Next 16 defaults to Turbopack; providing turbopack: {} suppresses the
+  // "webpack config defined but no turbopack config" warning and lets the
+  // build proceed cleanly. The @prisma/client alias is handled at the
+  // wrangler/esbuild layer via postinstall + @prisma/client/edge imports.
+  turbopack: {},
 };
 
 export default nextConfig;

@@ -1,9 +1,7 @@
-export const runtime = 'edge';
-
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
-import { prismaEdge } from '@/lib/prisma-edge';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
     const body = await req.text();
@@ -34,7 +32,7 @@ export async function POST(req: Request) {
             return new NextResponse('User id is required', { status: 400 });
         }
 
-        await prismaEdge.organization.updateMany({
+        await prisma.organization.updateMany({
             where: { clerkUserId: session.metadata.userId },
             data: {
                 stripeCustomerId: subscription.customer as string,
@@ -47,7 +45,7 @@ export async function POST(req: Request) {
     if (event.type === 'customer.subscription.deleted') {
         const subscription = event.data.object as Stripe.Subscription;
 
-        await prismaEdge.organization.updateMany({
+        await prisma.organization.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
                 subscriptionId: null,

@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { ScriptEditor } from "@/components/script-editor"
 
 export default function ScriptPage() {

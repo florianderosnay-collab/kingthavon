@@ -1,7 +1,5 @@
-export const runtime = 'edge';
-
 import { NextResponse } from 'next/server';
-import { prismaEdge } from '@/lib/prisma-edge';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: Request) {
@@ -13,7 +11,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
     }
 
-    const org = await prismaEdge.organization.findUnique({
+    const org = await prisma.organization.findUnique({
         where: { clerkUserId: userId },
     });
 

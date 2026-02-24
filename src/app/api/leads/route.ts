@@ -1,21 +1,19 @@
-export const runtime = 'edge';
-
 import { NextResponse } from 'next/server';
-import { prismaEdge } from '@/lib/prisma-edge';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
 export async function GET(req: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const org = await prismaEdge.organization.findUnique({
+    const org = await prisma.organization.findUnique({
         where: { clerkUserId: userId },
         select: { id: true },
     });
 
     if (!org) return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
 
-    const leads = await prismaEdge.lead.findMany({
+    const leads = await prisma.lead.findMany({
         where: { orgId: org.id },
         orderBy: { createdAt: 'desc' },
     });
@@ -27,7 +25,7 @@ export async function POST(req: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const org = await prismaEdge.organization.findUnique({
+    const org = await prisma.organization.findUnique({
         where: { clerkUserId: userId },
         select: { id: true },
     });
@@ -45,7 +43,7 @@ export async function POST(req: Request) {
         // Insert leads sequentially — $transaction is not available on the HTTP Neon driver
         const results = await Promise.all(
             leads.map((lead: { name?: string; phone: string; address?: string }) =>
-                prismaEdge.lead.create({
+                prisma.lead.create({
                     data: {
                         orgId: org.id,
                         name: lead.name || 'Unknown',

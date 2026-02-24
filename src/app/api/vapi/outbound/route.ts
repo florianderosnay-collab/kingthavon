@@ -1,7 +1,5 @@
-export const runtime = 'edge';
-
 import { NextResponse } from 'next/server';
-import { prismaEdge } from '@/lib/prisma-edge';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
 const VAPI_API_URL = 'https://api.vapi.ai/call/phone';
@@ -239,7 +237,7 @@ export async function POST(req: Request) {
 
     // Fetch org and lead concurrently
     const [org, lead] = await Promise.all([
-        prismaEdge.organization.findUnique({
+        prisma.organization.findUnique({
             where: { clerkUserId: userId },
             select: {
                 id: true,
@@ -251,7 +249,7 @@ export async function POST(req: Request) {
                 subscriptionId: true,
             },
         }),
-        prismaEdge.lead.findUnique({
+        prisma.lead.findUnique({
             where: { id: leadId },
             select: {
                 id: true,
@@ -312,7 +310,7 @@ export async function POST(req: Request) {
     const vapiData = await vapiRes.json();
 
     // Update lead status to 'ATTEMPTED' only after Vapi confirms the call was created
-    await prismaEdge.lead.update({
+    await prisma.lead.update({
         where: { id: leadId },
         data: {
             status: 'ATTEMPTED',

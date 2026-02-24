@@ -1,9 +1,7 @@
-export const runtime = 'edge';
-
 import { NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { stripe } from '@/lib/stripe';
-import { prismaEdge } from '@/lib/prisma-edge';
+import { prisma } from '@/lib/prisma';
 import { absoluteUrl } from '@/lib/utils';
 
 const settingsUrl = absoluteUrl('/dashboard/settings');
@@ -17,7 +15,7 @@ export async function POST(req: Request) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
-        const org = await prismaEdge.organization.findFirst({
+        const org = await prisma.organization.findFirst({
             where: { clerkUserId: userId },
         });
 

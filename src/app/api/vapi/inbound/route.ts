@@ -1,10 +1,8 @@
-export const runtime = 'edge';
-
 import { NextResponse } from 'next/server';
-import { prismaEdge } from '@/lib/prisma-edge';
+import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
 
-// Module-level singleton — instantiated once per edge worker lifetime, not per request.
+// Module-level singleton — instantiated once per Node process lifetime.
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
 
 export async function POST(req: Request) {
@@ -27,7 +25,7 @@ export async function POST(req: Request) {
                 );
             }
 
-            const org = await prismaEdge.organization.findUnique({
+            const org = await prisma.organization.findUnique({
                 where: { phoneNumber: vapiPhoneNumber },
                 // Select only the fields needed to build the assistant config.
                 // Fewer bytes over the wire = faster Neon HTTP response.
@@ -342,7 +340,7 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
 
                     // Fire all independent DB operations concurrently.
                     const dbOps: Promise<unknown>[] = [
-                        prismaEdge.callLog.create({
+                        prisma.callLog.create({
                             data: {
                                 orgId,
                                 leadId: leadId ?? null,
@@ -354,7 +352,7 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
                                 recordingUrl,
                             },
                         }),
-                        prismaEdge.organization.findUnique({
+                        prisma.organization.findUnique({
                             where: { id: orgId },
                             select: { email: true, name: true },
                         }),
@@ -364,7 +362,7 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
                     // Outbound calls always include leadId. Inbound calls do not (no lead lookup on inbound).
                     if (leadId) {
                         dbOps.push(
-                            prismaEdge.lead.update({
+                            prisma.lead.update({
                                 where: { id: leadId },
                                 data: {
                                     status: derivedLeadStatus,

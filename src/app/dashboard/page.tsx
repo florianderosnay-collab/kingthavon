@@ -1,8 +1,6 @@
-export const runtime = 'edge';
-
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { prismaEdge } from '@/lib/prisma-edge';
+import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Phone, Calendar, Users, BarChart3 } from 'lucide-react';
@@ -53,7 +51,7 @@ export default async function DashboardPage() {
     if (!userId) redirect('/sign-in');
 
     // Step 1: get the org (fast single-field lookup)
-    const org = await prismaEdge.organization.findUnique({
+    const org = await prisma.organization.findUnique({
         where: { clerkUserId: userId },
         select: { id: true, phoneNumber: true, plan: true },
     });
@@ -69,26 +67,26 @@ export default async function DashboardPage() {
     ] = org
             ? await Promise.all([
                 // Total calls handled by this org
-                prismaEdge.callLog.count({
+                prisma.callLog.count({
                     where: { orgId: org.id },
                 }),
                 // Leads that reached QUALIFIED state (valuation booked)
-                prismaEdge.lead.count({
+                prisma.lead.count({
                     where: { orgId: org.id, status: 'QUALIFIED' },
                 }),
                 // CallLog rows where the AI confirmed a booking
-                prismaEdge.callLog.count({
+                prisma.callLog.count({
                     where: { orgId: org.id, outcome: 'booked' },
                 }),
                 // Denominator for conversion rate: everyone we actually spoke to
-                prismaEdge.lead.count({
+                prisma.lead.count({
                     where: {
                         orgId: org.id,
                         status: { in: ['CONTACTED', 'QUALIFYING', 'QUALIFIED', 'DISQUALIFIED'] },
                     },
                 }),
                 // Last 5 calls for the activity feed
-                prismaEdge.callLog.findMany({
+                prisma.callLog.findMany({
                     where: { orgId: org.id },
                     orderBy: { createdAt: 'desc' },
                     take: 5,

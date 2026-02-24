@@ -1,4 +1,5 @@
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';

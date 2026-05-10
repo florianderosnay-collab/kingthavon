@@ -235,7 +235,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'leadId is required' }, { status: 400 });
     }
 
-    // Fetch org and lead concurrently
+    // Fetch org and lead concurrently — lead query uses compound where to enforce ownership
     const [org, lead] = await Promise.all([
         prisma.organization.findUnique({
             where: { clerkUserId: userId },
@@ -249,22 +249,27 @@ export async function POST(req: Request) {
                 subscriptionId: true,
             },
         }),
-        prisma.lead.findUnique({
-            where: { id: leadId },
-            select: {
-                id: true,
-                orgId: true,
-                name: true,
-                phone: true,
-                address: true,
-            },
-        }),
+        // Defer lead lookup until we have org — need orgId for compound query
+        null as unknown as Promise<null>,
     ]);
 
     if (!org) {
         return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
-    if (!lead || lead.orgId !== org.id) {
+
+    // Compound query: lead must exist AND belong to this org (prevents IDOR)
+    const lead2 = await prisma.lead.findFirst({
+        where: { id: leadId, orgId: org.id },
+        select: {
+            id: true,
+            orgId: true,
+            name: true,
+            phone: true,
+            address: true,
+        },
+    });
+
+    if (!lead2) {
         return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
     if (!org.vapiPhoneNumberId) {
@@ -277,14 +282,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'VAPI_API_KEY is not configured' }, { status: 500 });
     }
 
-    const assistant = buildAssistant(org, lead);
+    const assistant = buildAssistant(org, lead2);
 
     // POST to Vapi's outbound call API — no assistantId, full inline assistant config
     const vapiPayload = {
         phoneNumberId: org.vapiPhoneNumberId,
         customer: {
-            number: lead.phone,
-            name: lead.name,
+            number: lead2.phone,
+            name: lead2.name,
         },
         assistant,
     };
@@ -321,6 +326,6 @@ export async function POST(req: Request) {
     return NextResponse.json({
         success: true,
         callId: vapiData.id,
-        message: `Outbound call initiated to ${lead.name}`,
+        message: `Outbound call initiated to ${lead2.name}`,
     });
 }

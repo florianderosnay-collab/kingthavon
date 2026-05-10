@@ -2,13 +2,36 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
+// ── Phone validation ─────────────────────────────────────────────────────────
+const PHONE_E164_REGEX = /^\+[1-9]\d{6,14}$/;
+
+function sanitizePhone(raw: string): string {
+    // Strip common formatting chars but keep leading +
+    return raw.replace(/[\s\-()]/g, '');
+}
+
 export async function POST(request: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { phoneNumber } = await request.json();
-    if (!phoneNumber) {
+    let body: { phoneNumber?: string };
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const { phoneNumber: rawPhone } = body;
+    if (!rawPhone || typeof rawPhone !== 'string') {
         return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
+    }
+
+    const phoneNumber = sanitizePhone(rawPhone);
+    if (!PHONE_E164_REGEX.test(phoneNumber)) {
+        return NextResponse.json(
+            { error: 'Invalid phone number format. Use E.164 format (e.g. +1234567890)' },
+            { status: 400 }
+        );
     }
 
     const org = await prisma.organization.findUnique({
@@ -67,14 +90,14 @@ If the user asks to speak to a human, say you will have someone call them back.
 
         if (!vapiRes.ok) {
             const text = await vapiRes.text();
-            console.error('Vapi Error:', text);
-            return NextResponse.json({ error: 'Failed to start call', detail: text }, { status: 502 });
+            console.error('[VAPI_TEST_CALL_ERROR]', text);
+            return NextResponse.json({ error: 'Failed to start call' }, { status: 502 });
         }
 
         const data = await vapiRes.json();
         return NextResponse.json({ success: true, callId: data.id });
     } catch (error) {
-        console.error('Error triggering test call:', error);
+        console.error('[TEST_CALL_ERROR]', error);
         return NextResponse.json({ error: 'Failed to trigger call' }, { status: 500 });
     }
 }

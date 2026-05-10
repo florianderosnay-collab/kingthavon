@@ -5,13 +5,49 @@ import { Resend } from 'resend';
 // Module-level singleton — instantiated once per Node process lifetime.
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
 
+// ── HTML escaping to prevent XSS in emails ──────────────────────────────────
+function escapeHtml(str: string | null | undefined): string {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// ── UUID format validation ───────────────────────────────────────────────────
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value: unknown): value is string {
+    return typeof value === 'string' && UUID_REGEX.test(value);
+}
+
+// ── Webhook secret verification ──────────────────────────────────────────────
+function verifyWebhookSecret(req: Request): boolean {
+    const secret = process.env.VAPI_WEBHOOK_SECRET;
+    if (!secret) return true; // No secret configured — allow (log warning)
+    const headerSecret = req.headers.get('x-vapi-secret');
+    if (!headerSecret) return false;
+    // Constant-time comparison to prevent timing attacks
+    if (secret.length !== headerSecret.length) return false;
+    let mismatch = 0;
+    for (let i = 0; i < secret.length; i++) {
+        mismatch |= secret.charCodeAt(i) ^ headerSecret.charCodeAt(i);
+    }
+    return mismatch === 0;
+}
+
 export async function POST(req: Request) {
+    // ── Webhook Authentication ───────────────────────────────────────────────
+    if (!verifyWebhookSecret(req)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
         const body = await req.json();
 
         // ─── assistant-request ──────────────────────────────────────────────────
-        // Critical path: must return the assistant config as fast as possible.
-        // Single DB query over Neon HTTP — no TCP handshake, targets <150ms.
         if (body.message.type === 'assistant-request') {
             const call = body.message.call;
             const vapiPhoneNumber = call.customer?.number
@@ -27,8 +63,6 @@ export async function POST(req: Request) {
 
             const org = await prisma.organization.findUnique({
                 where: { phoneNumber: vapiPhoneNumber },
-                // Select only the fields needed to build the assistant config.
-                // Fewer bytes over the wire = faster Neon HTTP response.
                 select: {
                     id: true,
                     name: true,
@@ -256,7 +290,6 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
         }
 
         // ─── tool-calls ─────────────────────────────────────────────────────────
-        // Pure computation — no DB access needed.
         if (body.message.type === 'tool-calls') {
             const { toolCalls } = body.message;
 
@@ -281,8 +314,6 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
         }
 
         // ─── end-of-call-report ─────────────────────────────────────────────────
-        // Non-critical path — Vapi doesn't need a fast response here.
-        // All DB writes and email fire concurrently via Promise.all.
         if (body.message.type === 'end-of-call-report') {
             const call = body.message.call;
             const analysis = body.message.analysis;
@@ -294,22 +325,25 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
             const orgId = metadata?.orgId as string | undefined;
             const leadId = metadata?.leadId as string | undefined;
 
+            // Validate IDs before using them in DB queries
+            if (orgId && !isValidUuid(orgId)) {
+                console.error(`[SECURITY] Invalid orgId format: ${orgId}`);
+                return NextResponse.json({ status: 'ok' });
+            }
+            if (leadId && !isValidUuid(leadId)) {
+                console.error(`[SECURITY] Invalid leadId format: ${leadId}`);
+                return NextResponse.json({ status: 'ok' });
+            }
+
+            // Validate recordingUrl if present — must be HTTPS
+            const safeRecordingUrl = recordingUrl?.startsWith('https://') ? recordingUrl : null;
+
             if (orgId) {
                 try {
-                    // ── Lead Status Derivation ───────────────────────────────────────
-                    // Maps Vapi's structuredData analysis back to a ConversationState.
-                    // Rules (in priority order):
-                    //   1. appointment_booked: true           → QUALIFIED
-                    //   2. caller_intent / objection signals  → DISQUALIFIED
-                    //   3. Call too short (<10s, no answer)   → ATTEMPTED
-                    //   4. Real conversation, no booking      → CONTACTED
                     const durationSeconds = Math.round(call.durationSeconds || 0);
 
                     const derivedLeadStatus = (() => {
-                        // Rule 1: Appointment booked — best possible outcome
                         if (structuredData?.appointment_booked === true) return 'QUALIFIED';
-
-                        // Rule 2: Lead is not interested or definitively disqualified
                         const intent = structuredData?.caller_intent as string | undefined;
                         const objection = structuredData?.objection_type as string | undefined;
                         const followUp = structuredData?.follow_up_needed;
@@ -319,15 +353,10 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
                             objection === 'has_agent' ||
                             followUp === false && structuredData?.qualified === false
                         ) return 'DISQUALIFIED';
-
-                        // Rule 3: Very short call — probably voicemail or no answer
                         if (durationSeconds < 10) return 'ATTEMPTED';
-
-                        // Rule 4: Real conversation, no booking yet
                         return 'CONTACTED';
                     })();
 
-                    // Derive a compact outcome string for the CallLog record.
                     const derivedOutcome = (() => {
                         if (!structuredData) return null;
                         if (structuredData.appointment_booked === true) return 'booked';
@@ -338,7 +367,6 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
                         return 'contacted';
                     })();
 
-                    // Fire all independent DB operations concurrently.
                     const dbOps: Promise<unknown>[] = [
                         prisma.callLog.create({
                             data: {
@@ -349,7 +377,7 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
                                 duration: Math.round(call.durationSeconds || 0),
                                 summary: summary || 'No summary available',
                                 transcript: transcript || 'No transcript available',
-                                recordingUrl,
+                                recordingUrl: safeRecordingUrl,
                             },
                         }),
                         prisma.organization.findUnique({
@@ -358,8 +386,6 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
                         }),
                     ];
 
-                    // Update the specific lead's status only if a leadId was passed in metadata.
-                    // Outbound calls always include leadId. Inbound calls do not (no lead lookup on inbound).
                     if (leadId) {
                         dbOps.push(
                             prisma.lead.update({
@@ -376,26 +402,26 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
                     const org = results[1] as { email: string; name: string } | null;
 
                     if (org?.email) {
+                        // All dynamic content is HTML-escaped to prevent XSS
                         await resend.emails.send({
                             from: 'Thavon <updates@thavon.com>',
                             to: org.email,
                             subject: `New Call Summary - ${new Date().toLocaleDateString()}`,
                             html: `
                                 <h1>Call Summary</h1>
-                                <p><strong>Status:</strong> ${call.status}</p>
+                                <p><strong>Status:</strong> ${escapeHtml(call.status)}</p>
                                 <p><strong>Duration:</strong> ${Math.round(call.durationSeconds || 0)}s</p>
-                                <p><strong>Lead Status:</strong> ${leadId ? derivedLeadStatus : 'N/A (inbound)'}</p>
-                                <p><strong>Summary:</strong> ${summary || 'N/A'}</p>
-                                <p><a href="${recordingUrl}">Listen to Recording</a></p>
+                                <p><strong>Lead Status:</strong> ${leadId ? escapeHtml(derivedLeadStatus) : 'N/A (inbound)'}</p>
+                                <p><strong>Summary:</strong> ${escapeHtml(summary)}</p>
+                                ${safeRecordingUrl ? `<p><a href="${escapeHtml(safeRecordingUrl)}">Listen to Recording</a></p>` : ''}
                                 <br/>
                                 <h2>Transcript</h2>
-                                <p style="white-space: pre-wrap;">${transcript || 'N/A'}</p>
+                                <p style="white-space: pre-wrap;">${escapeHtml(transcript)}</p>
                             `,
                         });
                     }
                 } catch (error) {
-                    // Log but don't fail the response — Vapi doesn't retry on 500 for this event.
-                    console.error('Error processing end-of-call:', error);
+                    console.error('[END_OF_CALL_ERROR]', error);
                 }
             }
 
@@ -406,7 +432,7 @@ P3 - Booking: Only after at least 2 qualification answers AND caller shows openn
         return NextResponse.json({ status: 'ok' });
 
     } catch (error) {
-        console.error('Error processing Vapi webhook:', error);
+        console.error('[VAPI_WEBHOOK_ERROR]', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

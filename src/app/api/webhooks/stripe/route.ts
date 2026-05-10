@@ -4,21 +4,28 @@ import { stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
+    // ── Guard: webhook secret must be configured ─────────────────────────────
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+        console.error('[STRIPE_WEBHOOK] STRIPE_WEBHOOK_SECRET is not configured');
+        return new NextResponse('Server configuration error', { status: 500 });
+    }
+
     const body = await req.text();
     const signature = req.headers.get('Stripe-Signature') ?? '';
 
     let event: Stripe.Event;
 
     try {
-        // constructEventAsync uses Web Crypto API — compatible with Edge Runtime
         event = await stripe.webhooks.constructEventAsync(
             body,
             signature,
-            process.env.STRIPE_WEBHOOK_SECRET!
+            webhookSecret
         );
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
-        return new NextResponse(`Webhook Error: ${msg}`, { status: 400 });
+        console.error('[STRIPE_WEBHOOK] Signature verification failed:', msg);
+        return new NextResponse('Webhook signature verification failed', { status: 400 });
     }
 
     const session = event.data.object as Stripe.Checkout.Session;
